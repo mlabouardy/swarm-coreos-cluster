@@ -1,0 +1,52 @@
+#cloud-config
+coreos:
+  etcd2:
+    discovery: "http://discovery.etcd.io/65a8d17c0ace12e6f0b2988de270ca28"
+    advertise-client-urls: "http://$private_ipv4:2379"
+    initial-advertise-peer-urls: "http://$private_ipv4:2380"
+    listen-client-urls: "http://$private_ipv4:2379,http://127.0.0.1:2379"
+    listen-peer-urls: "http://$private_ipv4:2380"
+  units:
+    - name: etcd2.service
+      command: start
+    - name: python.service
+      command: start
+      content: |
+      [Unit]
+      Description=Python binary
+      Author=Mohamed Labouardy
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStartPre=/usr/bin/mkdir -p /opt/bin
+      ExecStartPre=/usr/bin/wget http://downloads.activestate.com/ActivePython/releases/2.7.13.2713/ActivePython-2.7.13.2713-linux-x86_64-glibc-2.3.6-401785.tar.gz
+      ExecStartPre=/usr/bin/tar -xzvf ActivePython-2.7.13.2713-linux-x86_64-glibc-2.3.6-401785.tar.gz
+      ExecStartPre=/usr/bin/mv ActivePython-2.7.13.2713-linux-x86_64-glibc-2.3.6-401785 apy
+      ExecStartPre=/bin/sh -c "cd apy && ./install.sh -I /opt/python/"
+      ExecStartPre=/usr/bin/ln -s /opt/python/bin/easy_install /opt/bin/easy_install
+      ExecStartPre=/usr/bin/ln -s /opt/python/bin/pip /opt/bin/pip
+      ExecStartPre=/usr/bin/ln -s /opt/python/bin/python /opt/bin/python
+      ExecStartPre=/usr/bin/ln -s /opt/python/bin/virtualenv /opt/bin/virtualenv
+      ExecStart=/opt/bin/python --version
+
+      [Install]
+      WantedBy=local.target
+
+    - name: registrator.service
+      command: start
+      content: |
+      [Unit]
+      Description=Service Registrator
+      After=docker.service
+      Requires=docker.service
+      Author=Mohamed Labouardy
+
+      [Service]
+      Restart=always
+      EnvironmentFile=/etc/environment
+      ExecStartPre=/usr/bin/docker rm registrator
+      ExecStart=/usr/bin/docker run -d --name registrator -v /var/run/docker.sock:/tmp/docker.sock --net=host gliderlabs/registrator etcd://${COREOS_PRIVATE_IPV4}:2379
+      ExecStop=/usr/bin/docker stop registrator
+  update:
+    reboot-strategy: off
