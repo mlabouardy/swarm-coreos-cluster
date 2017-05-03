@@ -1,0 +1,11 @@
+[masters]
+192.168.50.130
+
+[workers]
+192.168.50.13[1:2]
+
+[masters:vars]
+ansible_python_interpreter=/opt/python/bin/python
+
+[workers:vars]
+ansible_python_interpreter=/opt/python/bin/python
